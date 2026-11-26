@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "FB Group Post Cleaner",
+  "version": "1.0.0",
+  "description": "Xóa các bài bạn đã đăng trong nhóm Facebook, lấy danh sách từ Nhật ký hoạt động.",
+  "permissions": ["sidePanel", "storage", "scripting"],
+  "host_permissions": ["https://*.facebook.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "FB Group Post Cleaner"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.facebook.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

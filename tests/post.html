@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Mô phỏng – Trang bài viết trong nhóm</title>
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; margin: 0; background: #f0f2f5; }
+  .feed { max-width: 600px; margin: 20px auto; }
+  .post { background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 12px; position: relative; }
+  .more { position: absolute; right: 10px; top: 10px; cursor: pointer; padding: 2px 8px; background: #e4e6eb; border-radius: 50%; }
+  .overlay { position: fixed; inset: 0; background: rgba(255,255,255,.7); display: flex; align-items: flex-start; justify-content: center; padding-top: 40px; }
+  [role="dialog"] { background: #fff; width: 560px; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,.3); padding: 12px; position: relative; }
+  [role="menu"] { position: fixed; background: #fff; border: 1px solid #ccc; border-radius: 6px; padding: 4px; z-index: 50; }
+  [role="menuitem"] { padding: 6px 12px; cursor: pointer; }
+  [role="menuitem"]:hover { background: #eee; }
+  .confirm { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); z-index: 60; }
+  .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; background: #e4e6eb; cursor: pointer; margin-left: 6px; }
+  .btn.blue { background: #1877f2; color: #fff; }
+</style>
+</head>
+<body>
+<div role="banner"><b>facebook</b></div>
+<div role="main">
+  <div class="feed" role="feed" id="feed"></div>
+</div>
+
+<script>
+  // ?mode=ok|nolinkmatch|mismatch|gone|blocked|nodelete|nodialog|nodialog-mismatch
+  const params = new URLSearchParams(location.search);
+  const MODE = params.get('mode') || 'ok';
+  const GID = '111', PID = '9001';
+  const OWN_TEXT = 'Bán mèo con giá rẻ, ai cần liên hệ mình nhé! Mèo đã tiêm phòng đầy đủ.';
+  window.__log = [];   // các hành động "trên server"
+
+  function el(tag, attrs = {}, ...kids) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v);
+    for (const k of kids) e.append(k);
+    return e;
+  }
+
+  let openMenu = null;
+  function closeMenu() { if (openMenu) { openMenu.remove(); openMenu = null; } }
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+
+  function showMenu(anchor, postId, items) {
+    closeMenu();
+    const r = anchor.getBoundingClientRect();
+    const m = el('div', { role: 'menu' });
+    m.style.left = (r.right - 200) + 'px';
+    m.style.top = (r.bottom + 4) + 'px';
+    for (const label of items) {
+      const it = el('div', { role: 'menuitem', tabindex: '-1' }, el('span', {}, label));
+      it.addEventListener('click', () => {
+        window.__log.push('menu:' + label + ':' + postId);
+        closeMenu();
+        if (label === 'Xóa bài viết') showConfirm(postId);
+      });
+      m.append(it);
+    }
+    document.body.append(m);
+    openMenu = m;
+  }
+
+  function makePost({ postId, author, text, inDialog, withDeleteItem = true, linkPostId, actionLabel = 'Hành động với bài viết này' }) {
+    const p = el('div', { class: 'post' });
+    const head = el('div', {},
+      el('b', {}, author), el('br'),
+      el('a', { href: 'https://www.facebook.com/groups/' + GID + '/' }, 'Hội yêu mèo'), ' · ',
+      el('a', { href: 'https://www.facebook.com/groups/' + GID + '/posts/' + (linkPostId || postId) + '/?__cft__[0]=q' }, '3 giờ'));
+    const body = el('div', { 'data-ad-preview': 'message' }, text);
+    const more = el('div', { class: 'more', role: 'button', 'aria-label': actionLabel, 'aria-haspopup': 'menu', 'aria-expanded': 'false' });
+    more.innerHTML = '<svg width="16" height="16"><circle cx="3" cy="8" r="2"/><circle cx="8" cy="8" r="2"/><circle cx="13" cy="8" r="2"/></svg>';
+    more.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (openMenu) { closeMenu(); return; }
+      const items = ['Lưu bài viết', 'Chỉnh sửa bài viết'];
+      if (withDeleteItem) items.push('Xóa bài viết');
+      items.push('Tắt thông báo về bài viết này');
+      showMenu(more, postId, items);
+    });
+    p.append(more, head, body, el('div', { 'aria-label': 'Viết bình luận' }, 'Viết bình luận…'));
+    p.dataset.postId = postId;
+    return p;
+  }
+
+  function showConfirm(postId) {
+    const box = el('div', { role: 'dialog', 'aria-label': 'Xóa bài viết?' },
+      el('h3', {}, 'Xóa bài viết?'),
+      el('p', {}, 'Bạn có chắc chắn muốn xóa bài viết này không?'));
+    const cancel = el('div', { role: 'button', class: 'btn' }, el('span', {}, 'Hủy'));
+    const ok = el('div', { role: 'button', class: 'btn blue' }, el('span', {}, 'Xóa'));
+    box.append(el('div', { style: 'text-align:right' }, cancel, ok));
+    const wrap = el('div', { class: 'confirm' }, box);
+    cancel.addEventListener('click', () => wrap.remove());
+    ok.addEventListener('click', () => {
+      setTimeout(() => {
+        wrap.remove();
+        if (MODE === 'blocked') {
+          const warn = el('div', { role: 'dialog', 'aria-label': 'Thông báo' },
+            el('h3', {}, 'Bạn tạm thời bị chặn'),
+            el('p', {}, 'Có vẻ như bạn đã lạm dụng tính năng này do sử dụng quá nhanh.'));
+          document.body.append(el('div', { class: 'confirm' }, warn));
+          return;
+        }
+        window.__log.push('DELETED:' + postId);
+        const node = document.querySelector('.post[data-post-id="' + postId + '"]');
+        const dlgWrap = node && node.closest('.overlay');
+        if (dlgWrap) dlgWrap.remove(); else if (node) node.remove();
+      }, 600);
+    });
+    document.body.append(wrap);
+  }
+
+  // Bài khác trong nhóm (phía sau hộp thoại) – cũng có nút "Hành động với bài viết này"
+  const feed = document.getElementById('feed');
+  feed.append(makePost({ postId: '5555', author: 'Người khác', text: 'Bài của người khác trong nhóm, đừng xóa nhầm!' }));
+  feed.append(makePost({ postId: '5556', author: 'Nguyễn Văn A', text: 'Một bài cũ khác của tôi, không được chọn.' }));
+
+  if (MODE === 'gone') {
+    document.querySelector('[role="main"]').innerHTML =
+      '<div style="padding:40px;text-align:center"><h2>Nội dung này hiện không hiển thị</h2><p>Lỗi này thường do chủ sở hữu chỉ chia sẻ nội dung với một nhóm nhỏ.</p></div>';
+  } else if (MODE.startsWith('nodialog')) {
+    // bài hiển thị như trang riêng, không có hộp thoại
+    const mismatch = MODE === 'nodialog-mismatch';
+    feed.prepend(makePost({
+      postId: mismatch ? '7777' : PID, author: 'Nguyễn Văn A',
+      text: mismatch ? 'Nội dung hoàn toàn khác' : OWN_TEXT,
+    }));
+  } else {
+    setTimeout(() => {
+      const mismatch = MODE === 'mismatch';
+      const post = makePost({
+        postId: mismatch ? '7777' : PID,
+        author: 'Nguyễn Văn A',
+        text: mismatch ? 'Một nội dung hoàn toàn khác không liên quan' : OWN_TEXT,
+        withDeleteItem: MODE !== 'nodelete',
+        linkPostId: MODE === 'nolinkmatch' ? 'abc' : undefined,
+        actionLabel: MODE === 'nolabel' ? 'Xem thêm tùy chọn' : undefined,
+      });
+      const closeBtn = el('div', { role: 'button', 'aria-label': 'Đóng', style: 'position:absolute;right:10px;top:10px;width:30px;height:30px;background:#ddd;border-radius:50%' });
+      closeBtn.addEventListener('click', () => closeBtn.closest('.overlay').remove());
+      // nút "…" của bình luận – menu có "Xóa" nhưng không có "Xóa bài viết"
+      const cmtMore = el('div', { role: 'button', 'aria-label': 'Chỉnh sửa hoặc xóa bình luận này', 'aria-haspopup': 'menu', style: 'display:inline-block;width:20px;height:20px;background:#eee' });
+      cmtMore.addEventListener('click', () => { window.__log.push('COMMENT_MENU'); showMenu(cmtMore, 'cmt', ['Chỉnh sửa', 'Xóa']); });
+      const comment = el('div', { class: 'cmt' }, el('b', {}, 'Trần B'), ' Mình cũng muốn một bé ', cmtMore);
+      const dlg = el('div', { role: 'dialog', 'aria-label': 'Bài viết của Nguyễn Văn A' },
+        closeBtn, el('h2', {}, 'Bài viết của Nguyễn Văn A'), post, comment,
+        el('div', { 'aria-live': 'polite' }, 'Ai đó viết: tài khoản tôi tạm thời bị chặn hôm qua'), // chữ trong chính hộp thoại bài – không được báo nhầm
+      );
+      document.body.append(el('div', { class: 'overlay' }, dlg));
+    }, 1500);
+  }
+</script>
+<script src="../content.js"></script>
+</body>
+</html>

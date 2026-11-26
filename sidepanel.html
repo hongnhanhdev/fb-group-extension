@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FB Group Post Cleaner</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header class="app-head">
+    <h1>FB Group Post Cleaner</h1>
+    <p class="sub">Xóa bài bạn đã đăng trong các nhóm, lấy danh sách từ Nhật ký hoạt động.</p>
+  </header>
+
+  <div id="banner" class="banner" hidden>
+    <strong>Đã dừng khẩn cấp!</strong>
+    <span id="bannerText"></span>
+    <p>Facebook có thể đang hạn chế tài khoản. Hãy ngừng dùng công cụ (và hạn chế thao tác xóa thủ công) từ vài giờ tới 1 ngày rồi mới thử lại.</p>
+    <button id="bannerClose" class="btn small ghost" type="button">Đã hiểu</button>
+  </div>
+
+  <!-- 1 -->
+  <section class="card">
+    <h2><span class="num">1</span> Mở nhật ký</h2>
+    <button id="btnOpenLog" class="btn primary" type="button">Mở Bài viết và bình luận trong nhóm</button>
+    <p class="hint">Chỉ muốn xóa một khoảng thời gian? Trên trang nhật ký, dùng <b>Bộ lọc › Lọc theo ngày</b> của Facebook trước khi quét.</p>
+    <p id="openStatus" class="status"></p>
+  </section>
+
+  <!-- 2 -->
+  <section class="card">
+    <h2><span class="num">2</span> Quét</h2>
+    <div class="row">
+      <button id="btnScan" class="btn primary" type="button">Bắt đầu quét</button>
+      <button id="btnStopScan" class="btn" type="button" disabled>Dừng quét</button>
+    </div>
+    <p id="scanStatus" class="status">Mở trang nhật ký ở bước 1 rồi bấm "Bắt đầu quét". Công cụ tự cuộn tới hết danh sách.</p>
+    <details class="diag">
+      <summary>Công cụ không nhận đúng?</summary>
+      <p class="hint">Bấm Chẩn đoán trên trang nhật ký (hoặc trang bài viết) rồi gửi nội dung JSON cho người phát triển.</p>
+      <button id="btnDiag" class="btn small" type="button">Chẩn đoán trang hiện tại</button>
+      <div id="diagBox" hidden>
+        <textarea id="diagOut" rows="8" readonly></textarea>
+        <button id="btnCopyDiag" class="btn small" type="button">Sao chép lại</button>
+        <span id="diagMsg" class="status"></span>
+      </div>
+    </details>
+  </section>
+
+  <!-- 3 -->
+  <section class="card">
+    <h2><span class="num">3</span> Kiểm tra &amp; chọn</h2>
+    <div class="row">
+      <input id="search" type="search" placeholder="Tìm theo tên nhóm hoặc nội dung…" autocomplete="off">
+      <select id="statusFilter" title="Lọc trạng thái">
+        <option value="all">Tất cả</option>
+        <option value="pending">Chưa xóa</option>
+        <option value="deleted">Đã xóa</option>
+        <option value="error">Lỗi</option>
+      </select>
+    </div>
+    <div class="row wrap">
+      <button id="btnSelectAll" class="btn small" type="button">Chọn tất cả (đang hiển thị)</button>
+      <button id="btnSelectNone" class="btn small" type="button">Bỏ chọn</button>
+      <span class="spacer"></span>
+      <button id="btnCsv" class="btn small" type="button">Xuất CSV</button>
+      <button id="btnClear" class="btn small ghost danger-text" type="button">Xóa danh sách</button>
+    </div>
+    <p id="counters" class="counters"></p>
+    <p id="nolinkWarn" class="warn" hidden></p>
+    <div id="list" class="list" role="list"></div>
+  </section>
+
+  <!-- 4 -->
+  <section class="card">
+    <h2><span class="num">4</span> Xóa</h2>
+    <div class="settings">
+      <label class="check"><input id="optDry" type="checkbox"> <span><b>Chạy thử</b> – làm đủ các bước tới khi thấy "Xóa bài viết" rồi đóng menu, <b>không xóa thật</b></span></label>
+      <label class="check"><input id="optVerify" type="checkbox"> <span>Kiểm tra đúng bài trước khi xóa (khuyên dùng)</span></label>
+      <label class="inline">Giãn cách giữa 2 bài từ
+        <input id="optMin" type="number" min="2" max="600" step="1"> đến
+        <input id="optMax" type="number" min="2" max="600" step="1"> giây</label>
+      <label class="inline check"><input id="optLong" type="checkbox"> Nghỉ dài
+        <input id="optLongMin" type="number" min="1" max="120" step="1"> phút sau mỗi
+        <input id="optLongEvery" type="number" min="1" max="1000" step="1"> bài</label>
+    </div>
+    <p class="hint">Giữ tab Facebook <b>hiển thị</b> trong lúc chạy – tab nền bị Chrome làm chậm bộ hẹn giờ. Nên chạy thử với 3–5 bài trước.</p>
+    <div class="row">
+      <button id="btnRun" class="btn danger" type="button">Bắt đầu xóa</button>
+      <button id="btnPause" class="btn" type="button" disabled>Tạm dừng</button>
+      <button id="btnStop" class="btn" type="button" disabled>Dừng</button>
+    </div>
+    <div class="progress"><div id="progBar" class="bar"></div></div>
+    <p id="runStatus" class="status"></p>
+    <ol id="log" class="log"></ol>
+  </section>
+
+  <dialog id="modal">
+    <form method="dialog">
+      <p id="modalText"></p>
+      <div class="row end">
+        <button value="cancel" class="btn" type="submit">Hủy</button>
+        <button id="modalOk" value="ok" class="btn danger" type="submit">Đồng ý</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

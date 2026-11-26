@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Mô phỏng – Nhật ký hoạt động › Bài viết và bình luận trong nhóm</title>
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; margin: 0; background: #f0f2f5; }
+  nav { position: fixed; left: 0; top: 0; width: 220px; height: 100%; background: #fff; padding: 10px; }
+  main { margin-left: 250px; padding: 10px; max-width: 640px; }
+  .day h3 { margin: 18px 0 6px; font-size: 15px; }
+  .it { background: #fff; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; gap: 10px; }
+  .it .body { flex: 1; }
+  .it .acts { display: flex; gap: 6px; align-items: center; }
+  .it .acts > * { padding: 4px 10px; background: #e4e6eb; border-radius: 6px; cursor: pointer; text-decoration: none; color: #000; }
+  .meta { color: #65676b; font-size: 12px; }
+  .spinner { height: 40px; background: repeating-linear-gradient(45deg,#ddd,#ddd 10px,#eee 10px,#eee 20px); margin: 10px 0; }
+  .pad { height: 400px; }
+</style>
+</head>
+<body>
+<nav role="navigation">
+  <h2>Nhật ký hoạt động</h2>
+  <div role="link">Bài viết và bình luận trong nhóm</div>
+  <div role="button">Bộ lọc</div>
+</nav>
+<main role="main">
+  <h1>Bài viết và bình luận trong nhóm</h1>
+  <div id="list"></div>
+  <div id="loader" class="spinner" role="progressbar" aria-label="Đang tải..." hidden></div>
+  <div class="pad"></div>
+</main>
+
+<script>
+  const ME = 'Nguyễn Văn A';
+  const FB = 'https://www.facebook.com';
+  const cft = '?__cft__[0]=AZXabc123&__tn__=%2CO%2CP-R';
+
+  // kind: post | comment | reply | other ; view: href | null
+  const PAGES = [
+    [
+      { date: '2 Tháng 10, 2026', items: [
+        { kind: 'post', group: 'Hội yêu mèo', text: 'Bán mèo con giá rẻ, ai cần liên hệ mình nhé!', privacy: 'Nhóm công khai', time: '17:55',
+          href: FB + '/groups/111/permalink/9001/' + cft },
+        { kind: 'comment', who: 'Trần B', text: 'Mình cũng muốn một bé', privacy: 'Nhóm công khai', time: '17:40',
+          href: FB + '/groups/111/permalink/8000/?comment_id=77' + '&__cft__[0]=x' },
+        { kind: 'post', group: 'Chợ đồ cũ Hà Nội', text: 'Thanh lý tủ lạnh Toshiba 180L, còn mới 90%.', privacy: 'Nhóm riêng tư', time: '09:12',
+          href: FB + '/groups/choducu/permalink/9002/' + cft },
+      ]},
+      { date: '1 Tháng 10, 2026', items: [
+        { kind: 'post', group: 'Hội lập trình viên', text: 'Có ai dùng Rust cho dự án thật chưa ạ?', privacy: 'Nhóm công khai', time: '22:01',
+          href: null }, // nút "Xem" không có href
+        { kind: 'reply', who: 'Lê C', text: 'Cảm ơn bạn', privacy: 'Nhóm công khai', time: '21:00',
+          href: FB + '/groups/333/permalink/7000/?comment_id=1&reply_comment_id=2' },
+      ]},
+      { date: '30 Tháng 9, 2026', items: [ // ngày chỉ có 1 mục
+        { kind: 'post', group: 'Hội yêu mèo', text: '', privacy: 'Nhóm công khai', time: '08:00',
+          href: FB + '/groups/111/posts/9003/' + cft },
+      ]},
+    ],
+    [
+      { date: '28 Tháng 9, 2026', items: [
+        { kind: 'post', group: 'Phượt Việt Nam', text: 'Lịch trình Hà Giang 3 ngày 2 đêm, chi phí chỉ 2 triệu!', privacy: 'Nhóm công khai', time: '07:30',
+          href: FB + '/groups/444/?multi_permalinks=9004&ref=share&__tn__=R' },
+        { kind: 'other', text: 'Nguyễn Văn A đã tham gia nhóm Phượt Việt Nam.', time: '07:00', href: FB + '/groups/444/' },
+        { kind: 'post', group: 'Hội yêu mèo', text: 'Bán mèo con giá rẻ, ai cần liên hệ mình nhé!', privacy: 'Nhóm công khai', time: '17:55',
+          href: FB + '/groups/111/permalink/9001/?__cft__[0]=other' }, // trùng 9001
+      ]},
+    ],
+    [
+      { date: '15 Tháng 9, 2026', items: [
+        { kind: 'post', group: 'Group tiếng Anh', text: 'Permalink.php style link test', privacy: 'Nhóm công khai', time: '10:10',
+          href: FB + '/permalink.php?story_fbid=9005&id=555&__cft__[0]=zz' },
+        { kind: 'comment', who: 'Phạm D', text: 'ok', privacy: 'Nhóm công khai', time: '10:00',
+          href: FB + '/groups/555/permalink/6000/?comment_id=3' },
+      ]},
+    ],
+  ];
+
+  function el(tag, attrs = {}, ...kids) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v);
+    for (const k of kids) e.append(k);
+    return e;
+  }
+
+  function renderItem(it) {
+    let title;
+    if (it.kind === 'post') title = el('span', {}, ME + ' đã đăng trong ', el('a', { href: FB + '/groups/x' }, it.group), '.');
+    else if (it.kind === 'comment') title = el('span', {}, ME + ' đã bình luận về bài viết của ' + it.who + '.');
+    else if (it.kind === 'reply') title = el('span', {}, ME + ' đã trả lời bình luận của ' + it.who + '.');
+    else title = el('span', {}, it.text);
+    const body = el('div', { class: 'body' }, el('div', {}, title));
+    if (it.kind !== 'other' && it.text) body.append(el('div', {}, it.text));
+    const meta = el('div', { class: 'meta' });
+    if (it.privacy) meta.append(el('span', {}, it.privacy), ' · ');
+    meta.append(el('span', {}, it.time));
+    body.append(meta);
+    const view = it.href ? el('a', { href: it.href, role: 'link', tabindex: '0' }, el('span', {}, 'Xem'))
+                         : el('div', { role: 'button', tabindex: '0' }, el('span', {}, 'Xem'));
+    const acts = el('div', { class: 'acts' }, view, el('div', { role: 'button', 'aria-label': 'Hành động cho mục này' }, '…'));
+    return el('div', { class: 'it' }, el('div', { class: 'ava', 'aria-label': ME }), body, acts);
+  }
+
+  function renderPage(days) {
+    const list = document.getElementById('list');
+    for (const d of days) {
+      const box = el('div', { class: 'day' }, el('h3', {}, el('span', {}, d.date)));
+      const items = el('div', { class: 'items' });
+      for (const it of d.items) items.append(renderItem(it));
+      box.append(items);
+      list.append(box);
+    }
+  }
+
+  let page = 0, loading = false;
+  renderPage(PAGES[page++]);
+
+  function maybeLoad() {
+    if (loading || page >= PAGES.length) return;
+    const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 600;
+    if (!nearBottom) return;
+    loading = true;
+    const loader = document.getElementById('loader');
+    loader.hidden = false;
+    setTimeout(() => {
+      renderPage(PAGES[page++]);
+      loader.hidden = true;
+      loading = false;
+    }, 2500);
+  }
+  window.addEventListener('scroll', maybeLoad);
+
+  // Đáp án cho bộ kiểm thử
+  window.__EXPECT = {
+    posts: ['111_9001', 'choducu_9002', '111_9003', '444_9004', '555_9005'],
+    nolink: 1,
+    skipped: 4, // bình luận (trang 1) + trả lời + tham gia nhóm + bình luận (trang 3)
+  };
+</script>
+<script src="../content.js"></script>
+</body>
+</html>
